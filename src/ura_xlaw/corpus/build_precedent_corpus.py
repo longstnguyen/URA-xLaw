@@ -6,7 +6,9 @@ matching the citation grammar `AL<n>/<year>/AL`.
 
 Output: appends to data/processed/law_corpus_supplemental.parquet
 """
+
 from __future__ import annotations
+import argparse
 import json
 import re
 from pathlib import Path
@@ -21,11 +23,11 @@ INPUT_JSONL = PATHS.processed / "qa_mapped.jsonl"
 RE_AL = re.compile(r"^\s*(\d+)\s*/\s*(\d{4})\s*/\s*AL\s*$", re.I)
 
 
-def collect_needed_al() -> set:
+def collect_needed_al(input_jsonl: Path) -> set:
     """Find all 'AL N/YYYY/AL' citations that are unmapped."""
     out = set()
     pat = re.compile(r"AL\s*(\d+)\s*/\s*(\d{4})\s*/\s*AL", re.I)
-    for line in INPUT_JSONL.open():
+    for line in input_jsonl.open():
         rec = json.loads(line)
         for e in rec.get("entries", []):
             for ch in e.get("law_chunks", []):
@@ -37,8 +39,15 @@ def collect_needed_al() -> set:
     return out
 
 
-def main():
-    needed = collect_needed_al()
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", default=str(INPUT_JSONL))
+    parser.add_argument("--output", default=str(OUT))
+    args = parser.parse_args()
+    input_jsonl = Path(args.input)
+    output = Path(args.output)
+
+    needed = collect_needed_al(input_jsonl)
     print(f"[al] {len(needed)} unmapped án lệ ids: {sorted(needed)[:10]}...")
 
     print("[al] Loading phamhoangf/legal_benchmark_anle ...")
@@ -72,32 +81,35 @@ def main():
         # Strip excessive leading whitespace lines
         ctx_clean = re.sub(r"\n{3,}", "\n\n", ctx).strip()
         title = f"Án lệ số {n_int:02d}/{year}/AL"
-        rows.append({
-            "chunk_id": f"supp_al_{n_int}_{year}",
-            "law_sig": law_sig,
-            "law_num": str(n_int),
-            "law_year": year,
-            "law_category": "al",
-            "law_short_name": title,
-            "article_num": "1",
-            "article_title": title,
-            "clause_nums": [],
-            "content": f"[{title}]\n\n{ctx_clean}",
-            "article_text": ctx_clean,
-            "clauses_json": "{}",
-        })
+        rows.append(
+            {
+                "chunk_id": f"supp_al_{n_int}_{year}",
+                "law_sig": law_sig,
+                "law_num": str(n_int),
+                "law_year": year,
+                "law_category": "al",
+                "law_short_name": title,
+                "article_num": "1",
+                "article_title": title,
+                "clause_nums": [],
+                "content": f"[{title}]\n\n{ctx_clean}",
+                "article_text": ctx_clean,
+                "clauses_json": "{}",
+            }
+        )
     print(f"[al] Produced {len(rows)} án lệ rows ({matched} cover unmapped citations)")
 
     new_df = pd.DataFrame(rows)
-    if OUT.exists():
-        existing = pd.read_parquet(OUT)
+    if output.exists():
+        existing = pd.read_parquet(output)
         # Drop any pre-existing al rows to avoid dupes
         existing = existing[existing["law_category"] != "al"]
         out_df = pd.concat([existing, new_df], ignore_index=True)
     else:
         out_df = new_df
-    out_df.to_parquet(OUT, index=False)
-    print(f"[al] Wrote {len(out_df)} total rows -> {OUT}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    out_df.to_parquet(output, index=False)
+    print(f"[al] Wrote {len(out_df)} total rows -> {output}")
 
 
 if __name__ == "__main__":

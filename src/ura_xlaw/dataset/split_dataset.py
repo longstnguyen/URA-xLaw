@@ -149,9 +149,7 @@ def validate_split(train: list[dict], test: list[dict]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--input", default=str(PATHS.processed / "qa_answerable.jsonl")
-    )
+    parser.add_argument("--input", default=str(PATHS.processed / "qa_answerable.jsonl"))
     parser.add_argument("--output-dir", default=str(PATHS.processed))
     parser.add_argument("--test-fraction", type=float, default=0.20)
     parser.add_argument("--seed", type=int, default=42)

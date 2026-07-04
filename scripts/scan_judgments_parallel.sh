@@ -17,7 +17,7 @@ mkdir -p "$DATA_DIR" "$LOG_DIR"
 
 if [[ -z "$START_TOP" ]]; then
   START_TOP=$("$PY" - <<'PY'
-from ura_xlaw.acquisition.judgments import CongBoBanAnCrawler
+from ura_xlaw.acquisition.court_judgments import CongBoBanAnCrawler
 crawler = CongBoBanAnCrawler()
 crawler._start_browser()
 try:

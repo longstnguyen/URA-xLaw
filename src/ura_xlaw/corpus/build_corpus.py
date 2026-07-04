@@ -49,7 +49,9 @@ RE_ID_B = re.compile(
 )
 
 
-def parse_corpus_id(cid: str) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+def parse_corpus_id(
+    cid: str,
+) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
     """Return (law_num, law_year, law_category, article_num_from_id)."""
     cid = str(cid).strip()
     m = RE_ID_A.match(cid)
@@ -65,11 +67,17 @@ def parse_corpus_id(cid: str) -> Tuple[Optional[str], Optional[str], Optional[st
 
 # Header shape inside content: "[<lawNum>_<year>_<cat>]" then a title block, then "Điều X. ..."
 RE_CONTENT_HEADER = re.compile(r"^\s*\[[^\]]+\]\s*", re.IGNORECASE)
-RE_LAW_TITLE_LINE = re.compile(r"^(LUẬT|BỘ\s+LUẬT|NGHỊ\s+(?:QUYẾT|ĐỊNH)|THÔNG\s+TƯ|PHÁP\s+LỆNH|QUYẾT\s+ĐỊNH)\b.*",
-                                re.IGNORECASE)
-RE_ARTICLE_LINE = re.compile(r"^\s*Điều\s+(?P<num>\d+[a-z]?)\.?\s*(?P<title>[^\n]*)", re.IGNORECASE)
+RE_LAW_TITLE_LINE = re.compile(
+    r"^(LUẬT|BỘ\s+LUẬT|NGHỊ\s+(?:QUYẾT|ĐỊNH)|THÔNG\s+TƯ|PHÁP\s+LỆNH|QUYẾT\s+ĐỊNH)\b.*",
+    re.IGNORECASE,
+)
+RE_ARTICLE_LINE = re.compile(
+    r"^\s*Điều\s+(?P<num>\d+[a-z]?)\.?\s*(?P<title>[^\n]*)", re.IGNORECASE
+)
 # clause specifier line like "Khoản 1:" or "Khoản 1, 2:" or "Khoản 1-3:"
-RE_CLAUSE_SPEC = re.compile(r"^\s*Khoản\s+(?P<spec>[0-9,\s\-và]+)\s*:?\s*$", re.IGNORECASE)
+RE_CLAUSE_SPEC = re.compile(
+    r"^\s*Khoản\s+(?P<spec>[0-9,\s\-và]+)\s*:?\s*$", re.IGNORECASE
+)
 # inline clause start like "1." or "1)" at start of line
 RE_INLINE_CLAUSE = re.compile(r"^\s*(?P<n>\d{1,2})\s*[\.\-)]\s+", re.IGNORECASE)
 
@@ -189,11 +197,13 @@ def parse_content(content: str) -> Dict[str, object]:
     }
 
 
-def build_corpus(raw_path: Path = RAW_PATH, out_parquet: Path = OUT_PARQUET) -> pd.DataFrame:
+def build_corpus(
+    raw_path: Path = RAW_PATH, out_parquet: Path = OUT_PARQUET
+) -> pd.DataFrame:
     if not raw_path.exists():
         from datasets import load_dataset
 
-        print(f"[build_corpus] Downloading truro7/vn-law-corpus...")
+        print("[build_corpus] Downloading truro7/vn-law-corpus...")
         ds = load_dataset("truro7/vn-law-corpus", split="train")
         df = ds.to_pandas()
         raw_path.parent.mkdir(parents=True, exist_ok=True)
@@ -227,7 +237,9 @@ def build_corpus(raw_path: Path = RAW_PATH, out_parquet: Path = OUT_PARQUET) -> 
                 "clause_nums": parsed.get("clause_nums") or [],
                 "content": r["content"],
                 "article_text": parsed.get("article_text"),
-                "clauses_json": json.dumps(parsed.get("clauses") or {}, ensure_ascii=False),
+                "clauses_json": json.dumps(
+                    parsed.get("clauses") or {}, ensure_ascii=False
+                ),
             }
         )
 
@@ -238,8 +250,12 @@ def build_corpus(raw_path: Path = RAW_PATH, out_parquet: Path = OUT_PARQUET) -> 
 
     print(f"\n[build_corpus] Wrote {len(out)} rows -> {out_parquet}")
     print(f"[build_corpus] Preview (first 50) -> {OUT_CSV_PREVIEW}")
-    print(f"[build_corpus]   law_sig coverage:    {out['law_sig'].notna().sum()}/{len(out)}")
-    print(f"[build_corpus]   article_num coverage:{out['article_num'].notna().sum()}/{len(out)}")
+    print(
+        f"[build_corpus]   law_sig coverage:    {out['law_sig'].notna().sum()}/{len(out)}"
+    )
+    print(
+        f"[build_corpus]   article_num coverage:{out['article_num'].notna().sum()}/{len(out)}"
+    )
     print(f"[build_corpus]   unique laws (sig):   {out['law_sig'].nunique()}")
     return out
 

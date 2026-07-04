@@ -170,13 +170,13 @@ def main() -> None:
         prec = sum(1 for r in rows if has_precedent(r))
         print("\n=== case_type distribution ===")
         for k, v in ct.most_common():
-            print(f"  {k:35s} {v:6d} ({v/len(rows)*100:.1f}%)")
+            print(f"  {k:35s} {v:6d} ({v / len(rows) * 100:.1f}%)")
         print("\n=== trial_level distribution ===")
         for k, v in tl.most_common():
-            print(f"  {k:35s} {v:6d} ({v/len(rows)*100:.1f}%)")
+            print(f"  {k:35s} {v:6d} ({v / len(rows) * 100:.1f}%)")
         print(
             f"\nWith precedent (án lệ): {prec} / {len(rows)} "
-            f"({prec/len(rows)*100:.2f}%)"
+            f"({prec / len(rows) * 100:.2f}%)"
         )
         return
 

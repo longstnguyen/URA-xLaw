@@ -42,12 +42,14 @@ def validate_release(data_dir: Path, sample_size: int = 3) -> None:
     manifest = json.loads((data_dir / "manifest.json").read_text(encoding="utf-8"))
     qa_sets: dict[str, list[dict]] = {}
 
-    for name in ("train", "test", "unanswerable_real"):
+    for name in ("train", "test", "unanswerable"):
         metadata = manifest["files"][name]
         path = data_dir / metadata["path"]
         rows = load_jsonl(path)
         if len(rows) != metadata["rows"]:
-            raise ValueError(f"{name}: expected {metadata['rows']} rows, got {len(rows)}")
+            raise ValueError(
+                f"{name}: expected {metadata['rows']} rows, got {len(rows)}"
+            )
         if sha256(path) != metadata["sha256"]:
             raise ValueError(f"{name}: checksum mismatch")
         qa_sets[name] = rows
@@ -104,9 +106,11 @@ def validate_release(data_dir: Path, sample_size: int = 3) -> None:
             missing_gold.append(row["qa_id"])
     if missing_gold:
         raise ValueError(f"Invalid gold chunks for {len(missing_gold)} QA")
-    print(f"PASS grounding: all {len(answerable):,} answerable QA resolve in corpus_rag")
+    print(
+        f"PASS grounding: all {len(answerable):,} answerable QA resolve in corpus_rag"
+    )
 
-    unanswerable = qa_sets["unanswerable_real"]
+    unanswerable = qa_sets["unanswerable"]
     if not all(
         row.get("is_unanswerable") is True
         and not row.get("positive_chunk_ids")
@@ -121,7 +125,9 @@ def validate_release(data_dir: Path, sample_size: int = 3) -> None:
         print(f"SAMPLES {split}:")
         for row in rng.sample(qa_sets[split], min(sample_size, len(qa_sets[split]))):
             found = sum(str(value) in rag.index for value in row["positive_chunk_ids"])
-            print(f"- {row['qa_id']}: gold_lookup={found}/{len(row['positive_chunk_ids'])}")
+            print(
+                f"- {row['qa_id']}: gold_lookup={found}/{len(row['positive_chunk_ids'])}"
+            )
 
     print("ALL URA-xLaw RELEASE TESTS PASSED")
 

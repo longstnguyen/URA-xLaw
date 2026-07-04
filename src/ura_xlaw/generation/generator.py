@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from ura_xlaw.config import PATHS
 from ura_xlaw.generation.providers import AsyncOpenAIProvider, create_provider
-from ura_xlaw.generation.validation import validate_sample
+from ura_xlaw.generation.validator import validate_sample
 
 # Load environment variables from .env
 load_dotenv()
@@ -28,6 +28,7 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
 )
 logger = logging.getLogger(__name__)
+
 
 class DatasetGenerator:
     """Generate legal Q&A dataset from cleaned court judgments using LLM."""
@@ -240,10 +241,11 @@ class DatasetGenerator:
             total_lines = sum(1 for _ in f_count)
         target = min(limit, total_lines) if limit else total_lines
 
-        with open(input_file, "r", encoding="utf-8") as f_in, open(
-            output_file, "a", encoding="utf-8"
-        ) as f_out, open(rejected_file, "a", encoding="utf-8") as f_rej:
-
+        with (
+            open(input_file, "r", encoding="utf-8") as f_in,
+            open(output_file, "a", encoding="utf-8") as f_out,
+            open(rejected_file, "a", encoding="utf-8") as f_rej,
+        ):
             bar = tqdm(
                 total=target,
                 desc="Generating",
@@ -259,7 +261,7 @@ class DatasetGenerator:
 
                 try:
                     item = json.loads(line)
-                except:
+                except json.JSONDecodeError:
                     continue
 
                 doc_id = str(item.get("id", ""))
@@ -281,7 +283,7 @@ class DatasetGenerator:
                     )
                     continue
 
-                logger.debug(f"[{count+1}] Generating Q&A for: {title[:60]}...")
+                logger.debug(f"[{count + 1}] Generating Q&A for: {title[:60]}...")
 
                 # Truncate for prompt
                 item_copy = item.copy()
@@ -520,6 +522,7 @@ def main() -> None:
     parser.add_argument("--provider", choices=["openai", "gemini"], required=True)
     parser.add_argument("--key", help="API Key (or use environment variable)")
     parser.add_argument("--input", default=str(PATHS.cleaned_judgments))
+    parser.add_argument("--prompt", default=str(PATHS.generation_prompt))
     parser.add_argument("--limit", type=int, help="Number of docs to process")
     parser.add_argument("--model", help="Specific model name (e.g. gpt-4o-mini)")
     parser.add_argument(
@@ -542,7 +545,7 @@ def main() -> None:
         print("Error: API Key MUST be provided via --key or environment variable.")
         raise SystemExit(1)
 
-    gen = DatasetGenerator()
+    gen = DatasetGenerator(prompt_path=args.prompt)
 
     if args.concurrency > 1:
         if args.provider != "openai":

@@ -53,7 +53,9 @@ RE_ARTICLE_CIT = re.compile(
     r"(?::(?P<law>.+))?$"
 )
 # AL<n>/<year>/AL[:Name]
-RE_AN_LE_CIT = re.compile(r"^AL\s*(?P<num>\d+)\s*/\s*(?P<year>\d{4})\s*/\s*AL(?::(?P<name>.+))?$")
+RE_AN_LE_CIT = re.compile(
+    r"^AL\s*(?P<num>\d+)\s*/\s*(?P<year>\d{4})\s*/\s*AL(?::(?P<name>.+))?$"
+)
 
 
 def parse_citation(c: str) -> Optional[Dict]:
@@ -65,7 +67,10 @@ def parse_citation(c: str) -> Optional[Dict]:
             "num": m.group("num"),
             "year": m.group("year"),
             "name": (m.group("name") or "").strip() or None,
-            "article": None, "clause": None, "point": None, "law": None,
+            "article": None,
+            "clause": None,
+            "point": None,
+            "law": None,
         }
     m = RE_ARTICLE_CIT.match(s)
     if m:
@@ -82,6 +87,7 @@ def parse_citation(c: str) -> Optional[Dict]:
 
 
 # --- Vietnamese normalization --------------------------------------------- #
+
 
 def norm(s: Optional[str]) -> str:
     if not s:
@@ -135,7 +141,6 @@ ALIASES: Dict[str, str] = {
     "luat lao dong": "45_2019_qh14",
     "bo luat lao dong 2019": "45_2019_qh14",
     "luat lao dong 2019": "45_2019_qh14",
-
     # ---- Luật ----
     "luat to tung hanh chinh": "93_2015_qh13",
     "bo luat to tung hanh chinh": "93_2015_qh13",
@@ -194,7 +199,6 @@ ALIASES: Dict[str, str] = {
     "luat quan ly su dung vu khi vat lieu no va cong cu ho tro": "14_2017_qh14",
     "luat ve quan ly su dung vu khi vat lieu no va cong cu ho tro": "14_2017_qh14",
     "luat quan ly su dung vu khi vat lieu no": "14_2017_qh14",
-
     # ---- More from coverage gap analysis ----
     "luat cong chung": "53_2014_qh13",
     "luat cong chung 2014": "53_2014_qh13",
@@ -203,7 +207,6 @@ ALIASES: Dict[str, str] = {
     "luat ngan sach nha nuoc 2015": "83_2015_qh13",
     # 326/UBTVQH14 (without year) -> NQ 326/2016/UBTVQH14
     "nghi quyet 326/ubtvqh14": "326_2016_nq-ubtvqh14",
-
     # ---- Older versions (in case user explicitly cites them) ----
     "bo luat dan su 2005": "33_2005_qh11",
     "luat dan su 2005": "33_2005_qh11",
@@ -215,7 +218,6 @@ ALIASES: Dict[str, str] = {
     "bo luat lao dong 1994": "35_l_ctn",
     "luat hon nhan va gia dinh 2000": "22_2000_qh10",
     "luat dat dai 2003": "13_2003_qh11",
-
     # ---- TVPL-crawled new laws ----
     "luat tu phap nguoi chua thanh nien": "59_2024_qh15",
     "luat tu phap nguoi chua thanh nien 2024": "59_2024_qh15",
@@ -244,12 +246,17 @@ ALIASES: Dict[str, str] = {
 
 # --- Corpus index --------------------------------------------------------- #
 
+
 class CorpusIndex:
     def __init__(self, df: pd.DataFrame):
         self.df = df
 
         # Pre-fill missing law_short_name within each law_sig with first non-null
-        df_sn = df.dropna(subset=["law_sig", "law_short_name"]).groupby("law_sig")["law_short_name"].first()
+        df_sn = (
+            df.dropna(subset=["law_sig", "law_short_name"])
+            .groupby("law_sig")["law_short_name"]
+            .first()
+        )
         self.sig_to_short: Dict[str, str] = df_sn.to_dict()
         # All sigs that exist (even with null short_name)
         self.all_sigs: set = set(df["law_sig"].dropna().astype(str).unique())
@@ -295,7 +302,9 @@ class CorpusIndex:
 
         # Doc-id pattern: "Nghị định 43/2014/NĐ-CP", "Nghị quyết 326/2016/UBTVQH14", etc.
         # Try to derive corpus law_sig directly: <num>_<year>_<cat>
-        m = re.search(r"(\d+)\s*/\s*(\d{4})\s*/\s*([\wđĐ\-]+)", raw_law_name, re.UNICODE)
+        m = re.search(
+            r"(\d+)\s*/\s*(\d{4})\s*/\s*([\wđĐ\-]+)", raw_law_name, re.UNICODE
+        )
         if m:
             num = m.group(1).lstrip("0") or "0"
             year = m.group(2)
@@ -307,7 +316,11 @@ class CorpusIndex:
                 if not cat_raw.startswith("nq-"):
                     prefix = "nq-"
             # Try multiple variants
-            cat_variants = {cat_raw, cat_raw.replace("đ", "d"), cat_raw.replace("d", "đ", 1)}
+            cat_variants = {
+                cat_raw,
+                cat_raw.replace("đ", "d"),
+                cat_raw.replace("d", "đ", 1),
+            }
             for cv in cat_variants:
                 for c in (cv, prefix + cv if prefix else cv):
                     for n in (num, num.zfill(2), num.zfill(3)):
@@ -331,6 +344,7 @@ class CorpusIndex:
 
 
 # --- Chunk text rendering ------------------------------------------------- #
+
 
 def render_chunk(corpus: pd.DataFrame, idx: int, clause: Optional[str] = None) -> str:
     """Return a clean text for a corpus row, optionally narrowed to a specific clause."""
@@ -358,6 +372,7 @@ def render_chunk(corpus: pd.DataFrame, idx: int, clause: Optional[str] = None) -
 
 # --- Main mapping --------------------------------------------------------- #
 
+
 def map_citation(
     cit: str, parsed: Dict, idx: CorpusIndex, corpus: pd.DataFrame
 ) -> Dict:
@@ -381,8 +396,11 @@ def map_citation(
         n_str = parsed["num"]
         n_int = int(n_str)
         year = parsed["year"]
-        candidates = [f"{n_int}_{year}_al", f"{n_str}_{year}_al",
-                      f"{n_int:02d}_{year}_al"]
+        candidates = [
+            f"{n_int}_{year}_al",
+            f"{n_str}_{year}_al",
+            f"{n_int:02d}_{year}_al",
+        ]
         rows: List[int] = []
         sig = None
         for c in candidates:
@@ -438,8 +456,11 @@ def map_citation(
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--corpus", default=str(CORPUS_PATH))
-    p.add_argument("--supp", default=str(PATHS.processed / "law_corpus_supplemental.parquet"),
-                   help="Optional supplemental corpus parquet (merged in if present)")
+    p.add_argument(
+        "--supp",
+        default=str(PATHS.processed / "law_corpus_supplemental.parquet"),
+        help="Optional supplemental corpus parquet (merged in if present)",
+    )
     p.add_argument("--input", default=str(INPUT_JSONL))
     p.add_argument("--output", default=str(OUTPUT_JSONL))
     p.add_argument("--report", default=str(COVERAGE_REPORT))
@@ -447,13 +468,19 @@ def main():
 
     print(f"[map] Loading corpus from {args.corpus}")
     corpus = pd.read_parquet(args.corpus)
-    print(f"[map]   primary: {len(corpus):,} chunks, {corpus['law_sig'].nunique():,} laws")
+    print(
+        f"[map]   primary: {len(corpus):,} chunks, {corpus['law_sig'].nunique():,} laws"
+    )
     supp_path = Path(args.supp)
     if supp_path.exists():
         supp = pd.read_parquet(supp_path)
-        print(f"[map]   supplemental: {len(supp):,} chunks, {supp['law_sig'].nunique():,} laws")
+        print(
+            f"[map]   supplemental: {len(supp):,} chunks, {supp['law_sig'].nunique():,} laws"
+        )
         corpus = pd.concat([corpus, supp], ignore_index=True)
-        print(f"[map]   merged: {len(corpus):,} chunks, {corpus['law_sig'].nunique():,} laws")
+        print(
+            f"[map]   merged: {len(corpus):,} chunks, {corpus['law_sig'].nunique():,} laws"
+        )
 
     idx = CorpusIndex(corpus)
     print(f"[map]   {len(idx.aliases):,} aliases active")
@@ -483,7 +510,11 @@ def main():
                         sig_hit[res["law_sig"]] += 1
                     else:
                         fail_counter[res["fail_reason"]] += 1
-                        if res["fail_reason"] == "law_name_unmapped" and parsed and parsed.get("law"):
+                        if (
+                            res["fail_reason"] == "law_name_unmapped"
+                            and parsed
+                            and parsed.get("law")
+                        ):
                             unmapped_law_names[parsed["law"]] += 1
                 entry["law_chunks"] = chunks
             fout.write(json.dumps(doc, ensure_ascii=False) + "\n")
@@ -504,8 +535,8 @@ def main():
 
     print()
     print(f"[map] Total citations: {n_total:,}")
-    print(f"[map] Matched:         {n_match:,}  ({coverage*100:.2f}%)")
-    print(f"[map] Failure breakdown:")
+    print(f"[map] Matched:         {n_match:,}  ({coverage * 100:.2f}%)")
+    print("[map] Failure breakdown:")
     for k, v in fail_counter.most_common():
         print(f"        {v:5d}  {k}")
     print()

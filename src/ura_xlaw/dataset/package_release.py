@@ -40,16 +40,16 @@ def main() -> None:
     sources = {
         "train": processed / "train.jsonl",
         "test": processed / "test.jsonl",
-        "unanswerable_real": processed / "unanswerable_real.jsonl",
+        "unanswerable": processed / "unanswerable.jsonl",
         "corpus_full": processed / "law_corpus_final.parquet",
         "corpus_rag": processed / "law_corpus_qa_only.parquet",
     }
     targets = {
         "train": output / "train.jsonl",
         "test": output / "test.jsonl",
-        "unanswerable_real": output / "unanswerable_real.jsonl",
-        "corpus_full": output / "corpus_full.parquet",
-        "corpus_rag": output / "corpus_rag.parquet",
+        "unanswerable": output / "unanswerable.jsonl",
+        "corpus_full": output / "corpus" / "full.parquet",
+        "corpus_rag": output / "corpus" / "retrieval.parquet",
     }
     for name, source in sources.items():
         if not source.exists():
@@ -63,12 +63,12 @@ def main() -> None:
         "task": "legal retrieval-augmented question answering",
         "files": {},
     }
-    for name in ("train", "test", "unanswerable_real"):
+    for name in ("train", "test", "unanswerable"):
         path = targets[name]
         with path.open(encoding="utf-8") as source:
             rows = sum(1 for line in source if line.strip())
         manifest["files"][name] = {
-            "path": path.name,
+            "path": path.relative_to(output).as_posix(),
             "rows": rows,
             "sha256": checksum(path),
         }
@@ -76,7 +76,7 @@ def main() -> None:
         path = targets[name]
         frame = pd.read_parquet(path, columns=["chunk_id", "law_sig"])
         manifest["files"][name] = {
-            "path": path.name,
+            "path": path.relative_to(output).as_posix(),
             "chunks": len(frame),
             "legal_documents": frame["law_sig"].nunique(),
             "sha256": checksum(path),

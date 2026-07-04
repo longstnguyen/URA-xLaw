@@ -14,7 +14,6 @@ import re
 import argparse
 import logging
 from typing import Optional
-from io import BytesIO
 
 try:
     import fitz  # PyMuPDF

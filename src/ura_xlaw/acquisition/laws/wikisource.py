@@ -8,6 +8,7 @@ same way as crawl_tvpl_playwright.
 
 Output: appends to data/processed/law_corpus_supplemental.parquet
 """
+
 from __future__ import annotations
 import json
 import re
@@ -16,7 +17,6 @@ import html
 import urllib.request
 import urllib.parse
 from html.parser import HTMLParser
-from pathlib import Path
 from typing import Dict, List
 import pandas as pd
 
@@ -31,14 +31,30 @@ API = "https://vi.wikisource.org/w/api.php"
 
 # (doc_id, short_name, law_sig, wikisource_root_title)
 WIKI_DOCS = [
-    ("31/2024/QH15", "Luật Đất đai 2024", "31_2024_qh15",
-     "Luật Đất đai nước Cộng hòa xã hội chủ nghĩa Việt Nam 2024"),
-    ("36/2024/QH15", "Luật Trật tự, an toàn giao thông đường bộ 2024", "36_2024_qh15",
-     "Luật Trật tự, an toàn giao thông đường bộ nước Cộng hòa xã hội chủ nghĩa Việt Nam 2024"),
-    ("59/2024/QH15", "Luật Tư pháp người chưa thành niên 2024", "59_2024_qh15",
-     "Luật Tư pháp người chưa thành niên nước Cộng hòa xã hội chủ nghĩa Việt Nam 2024"),
-    ("100/2015/QH13", "Bộ luật Hình sự 2015 (sửa đổi 2017)", "100_2015_qh13",
-     "Bộ luật Hình sự nước Cộng hòa xã hội chủ nghĩa Việt Nam 2015 (sửa đổi, bổ sung 2017)"),
+    (
+        "31/2024/QH15",
+        "Luật Đất đai 2024",
+        "31_2024_qh15",
+        "Luật Đất đai nước Cộng hòa xã hội chủ nghĩa Việt Nam 2024",
+    ),
+    (
+        "36/2024/QH15",
+        "Luật Trật tự, an toàn giao thông đường bộ 2024",
+        "36_2024_qh15",
+        "Luật Trật tự, an toàn giao thông đường bộ nước Cộng hòa xã hội chủ nghĩa Việt Nam 2024",
+    ),
+    (
+        "59/2024/QH15",
+        "Luật Tư pháp người chưa thành niên 2024",
+        "59_2024_qh15",
+        "Luật Tư pháp người chưa thành niên nước Cộng hòa xã hội chủ nghĩa Việt Nam 2024",
+    ),
+    (
+        "100/2015/QH13",
+        "Bộ luật Hình sự 2015 (sửa đổi 2017)",
+        "100_2015_qh13",
+        "Bộ luật Hình sự nước Cộng hòa xã hội chủ nghĩa Việt Nam 2015 (sửa đổi, bổ sung 2017)",
+    ),
 ]
 
 
@@ -50,10 +66,10 @@ def http_get(url: str) -> bytes:
                 return r.read()
         except urllib.error.HTTPError as e:
             wait = 5.0 * (attempt + 1) if e.code == 429 else 2.0 * (attempt + 1)
-            print(f"      http {e.code} (try {attempt+1}), sleeping {wait:.0f}s")
+            print(f"      http {e.code} (try {attempt + 1}), sleeping {wait:.0f}s")
             time.sleep(wait)
         except Exception as e:
-            print(f"      http err (try {attempt+1}): {e}")
+            print(f"      http err (try {attempt + 1}): {e}")
             time.sleep(2.0 * (attempt + 1))
     return b""
 
@@ -63,9 +79,11 @@ def list_subpages(root_title: str) -> List[str]:
     out: List[str] = []
     cont = ""
     while True:
-        url = (f"{API}?action=query&list=allpages"
-               f"&apprefix={urllib.parse.quote(root_title + '/')}"
-               f"&aplimit=500&format=json{cont}")
+        url = (
+            f"{API}?action=query&list=allpages"
+            f"&apprefix={urllib.parse.quote(root_title + '/')}"
+            f"&aplimit=500&format=json{cont}"
+        )
         data = json.loads(http_get(url))
         for p in data.get("query", {}).get("allpages", []):
             out.append(p["title"])
@@ -81,8 +99,10 @@ def fetch_page_html(title: str) -> str:
     cache = CACHE_DIR / (re.sub(r"[^a-zA-Z0-9]+", "_", title)[-180:] + ".html")
     if cache.exists() and cache.stat().st_size > 1000:
         return cache.read_text("utf-8", errors="replace")
-    url = (f"{API}?action=parse&page={urllib.parse.quote(title)}"
-           f"&prop=text&formatversion=2&format=json")
+    url = (
+        f"{API}?action=parse&page={urllib.parse.quote(title)}"
+        f"&prop=text&formatversion=2&format=json"
+    )
     data = json.loads(http_get(url))
     text = data.get("parse", {}).get("text", "")
     if isinstance(text, dict):
@@ -98,6 +118,7 @@ class TextExtractor(HTMLParser):
 
     Tracks a stack of skip-causing tags so closing them decrements correctly.
     """
+
     SKIP_TAGS = {"script", "style", "table"}
 
     def __init__(self):
@@ -108,7 +129,9 @@ class TextExtractor(HTMLParser):
     def handle_starttag(self, tag, attrs):
         d = dict(attrs)
         cls = d.get("class", "") or ""
-        skip_cls = ("noprint" in cls) or ("toc" in cls.split()) or ("dynlayout-exempt" in cls)
+        skip_cls = (
+            ("noprint" in cls) or ("toc" in cls.split()) or ("dynlayout-exempt" in cls)
+        )
         if tag in self.SKIP_TAGS or skip_cls:
             self.skip_stack.append(tag)
 
@@ -163,7 +186,11 @@ def parse_articles(text: str) -> List[Dict]:
         for j, cm in enumerate(clause_iter):
             cn = cm.group("n")
             cs = cm.end()
-            ce = clause_iter[j + 1].start() if j + 1 < len(clause_iter) else len(full_body)
+            ce = (
+                clause_iter[j + 1].start()
+                if j + 1 < len(clause_iter)
+                else len(full_body)
+            )
             ctext = full_body[cs:ce].strip()
             if len(ctext) >= 5:
                 clauses[cn] = ctext
@@ -177,7 +204,9 @@ def parse_articles(text: str) -> List[Dict]:
                 "article_num": m.group("num"),
                 "article_title": title,
                 "article_text": body,
-                "clauses_json": json.dumps(clauses, ensure_ascii=False) if clauses else "{}",
+                "clauses_json": json.dumps(clauses, ensure_ascii=False)
+                if clauses
+                else "{}",
                 "clause_nums": clause_nums,
             }
     return list(out_by_num.values())
@@ -210,36 +239,46 @@ def main():
             continue
         parts = doc_id.split("/")
         for art in arts:
-            rows.append({
-                "chunk_id": f"supp_wiki_{law_sig}_{art['article_num']}",
-                "law_sig": law_sig,
-                "law_num": parts[0],
-                "law_year": parts[1] if len(parts) > 1 else "",
-                "law_category": law_sig.split("_", 2)[2] if law_sig.count("_") >= 2 else "",
-                "law_short_name": short_name,
-                "article_num": art["article_num"],
-                "article_title": art["article_title"],
-                "clause_nums": art["clause_nums"],
-                "content": (
-                    f"[{short_name.upper()}]\n"
-                    f"Điều {art['article_num']}. {art['article_title']}\n\n"
-                    f"{art['article_text']}"
-                ),
-                "article_text": art["article_text"],
-                "clauses_json": art["clauses_json"],
-            })
+            rows.append(
+                {
+                    "chunk_id": f"supp_wiki_{law_sig}_{art['article_num']}",
+                    "law_sig": law_sig,
+                    "law_num": parts[0],
+                    "law_year": parts[1] if len(parts) > 1 else "",
+                    "law_category": law_sig.split("_", 2)[2]
+                    if law_sig.count("_") >= 2
+                    else "",
+                    "law_short_name": short_name,
+                    "article_num": art["article_num"],
+                    "article_title": art["article_title"],
+                    "clause_nums": art["clause_nums"],
+                    "content": (
+                        f"[{short_name.upper()}]\n"
+                        f"Điều {art['article_num']}. {art['article_title']}\n\n"
+                        f"{art['article_text']}"
+                    ),
+                    "article_text": art["article_text"],
+                    "clauses_json": art["clauses_json"],
+                }
+            )
 
     if not rows:
         print("[wiki] Nothing extracted")
         return
     new_df = pd.DataFrame(rows)
-    print(f"\n[wiki] Produced {len(new_df)} rows from {new_df['law_sig'].nunique()} laws")
+    print(
+        f"\n[wiki] Produced {len(new_df)} rows from {new_df['law_sig'].nunique()} laws"
+    )
 
     if OUT.exists():
         existing = pd.read_parquet(OUT)
-        existing["_key"] = existing["law_sig"].astype(str) + "||" + existing["article_num"].astype(str)
+        existing["_key"] = (
+            existing["law_sig"].astype(str) + "||" + existing["article_num"].astype(str)
+        )
         existing["_len"] = existing["article_text"].astype(str).str.len()
-        new_df["_key"] = new_df["law_sig"].astype(str) + "||" + new_df["article_num"].astype(str)
+        new_df["_key"] = (
+            new_df["law_sig"].astype(str) + "||" + new_df["article_num"].astype(str)
+        )
         new_df["_len"] = new_df["article_text"].astype(str).str.len()
         existing_keys = set(existing["_key"])
         existing_len_by_key = dict(zip(existing["_key"], existing["_len"]))

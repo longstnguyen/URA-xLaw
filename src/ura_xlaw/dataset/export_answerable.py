@@ -8,6 +8,7 @@ Outputs:
   - data/processed/qa_answerable.parquet (same as jsonl, columnar)
   - data/processed/qa_answerable_stats.json    (summary)
 """
+
 from __future__ import annotations
 import argparse
 import json
@@ -73,38 +74,42 @@ def main():
                 for c in chunks:
                     cid = c["chunk_id"]
                     used_chunk_ids.add(cid)
-                    positives.append({
-                        "chunk_id": cid,
-                        "citation": c["citation"],
-                        "law_sig": c["law_sig"],
-                        "article": c.get("article"),
-                        "clause": c.get("clause"),
-                        "point": c.get("point"),
-                    })
+                    positives.append(
+                        {
+                            "chunk_id": cid,
+                            "citation": c["citation"],
+                            "law_sig": c["law_sig"],
+                            "article": c.get("article"),
+                            "clause": c.get("clause"),
+                            "point": c.get("point"),
+                        }
+                    )
 
-                kept_records.append({
-                    "qa_id": qa_id,
-                    "doc_id": rec.get("doc_id"),
-                    "case_number": rec.get("case_number"),
-                    "court": rec.get("court"),
-                    "case_type": rec.get("case_type"),
-                    "trial_level": rec.get("trial_level"),
-                    "legal_relation": rec.get("legal_relation"),
-                    "situation": rec.get("situation"),
-                    "legal_category": e.get("legal_category"),
-                    "complexity_level": e.get("complexity_level"),
-                    "question": e.get("question"),
-                    "answer": e.get("answer"),
-                    "legal_reasoning": e.get("legal_reasoning"),
-                    "law_applied": e.get("law_applied", []),
-                    "positive_chunk_ids": [p["chunk_id"] for p in positives],
-                    "positives": positives,
-                })
+                kept_records.append(
+                    {
+                        "qa_id": qa_id,
+                        "doc_id": rec.get("doc_id"),
+                        "case_number": rec.get("case_number"),
+                        "court": rec.get("court"),
+                        "case_type": rec.get("case_type"),
+                        "trial_level": rec.get("trial_level"),
+                        "legal_relation": rec.get("legal_relation"),
+                        "situation": rec.get("situation"),
+                        "legal_category": e.get("legal_category"),
+                        "complexity_level": e.get("complexity_level"),
+                        "question": e.get("question"),
+                        "answer": e.get("answer"),
+                        "legal_reasoning": e.get("legal_reasoning"),
+                        "law_applied": e.get("law_applied", []),
+                        "positive_chunk_ids": [p["chunk_id"] for p in positives],
+                        "positives": positives,
+                    }
+                )
                 n_kept += 1
 
     print(f"[export] docs={n_docs}  entries={n_entries}")
-    print(f"[export] kept (strict): {n_kept}  ({n_kept/n_entries*100:.2f}%)")
-    print(f"[export] dropped:       {n_drop}  ({n_drop/n_entries*100:.2f}%)")
+    print(f"[export] kept (strict): {n_kept}  ({n_kept / n_entries * 100:.2f}%)")
+    print(f"[export] dropped:       {n_drop}  ({n_drop / n_entries * 100:.2f}%)")
     print(f"[export] drop reasons: {dict(drop_reasons)}")
     print(f"[export] unique positive chunks used: {len(used_chunk_ids)}")
 
@@ -117,7 +122,9 @@ def main():
 
     # Parquet (flatten positives -> json string for safe storage)
     df = pd.DataFrame(kept_records)
-    df["positives_json"] = df["positives"].apply(lambda xs: json.dumps(xs, ensure_ascii=False))
+    df["positives_json"] = df["positives"].apply(
+        lambda xs: json.dumps(xs, ensure_ascii=False)
+    )
     df_parq = df.drop(columns=["positives"]).copy()
     df_parq.to_parquet(output_parquet, index=False)
     print(f"[export] wrote {output_parquet}")
@@ -132,7 +139,9 @@ def main():
         supp = supp.reindex(columns=cols)
     corpus = pd.concat([prim, supp], ignore_index=True)
     corpus = corpus.drop_duplicates(subset=["chunk_id"], keep="first")
-    print(f"[export] merged corpus: {len(corpus)} chunks (primary={len(prim)}, supp={len(supp)})")
+    print(
+        f"[export] merged corpus: {len(corpus)} chunks (primary={len(prim)}, supp={len(supp)})"
+    )
 
     # Coverage check: every positive chunk_id must exist in corpus
     corpus_ids = set(corpus["chunk_id"].astype(str))
@@ -172,7 +181,9 @@ def main():
         json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     print(f"[export] wrote {output_stats}")
-    print(f"\n[export] DONE. Final dataset: {n_kept} Q&A over {len(corpus)} corpus chunks.")
+    print(
+        f"\n[export] DONE. Final dataset: {n_kept} Q&A over {len(corpus)} corpus chunks."
+    )
 
 
 if __name__ == "__main__":

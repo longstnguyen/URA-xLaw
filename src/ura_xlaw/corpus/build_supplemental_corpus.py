@@ -16,7 +16,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 import pandas as pd
 from tqdm import tqdm
@@ -78,8 +78,7 @@ def doc_id_to_law_sig(doc_id: str) -> str:
     num, year, cat = parts[0], parts[1], parts[2]
     cat_low = cat.lower()
     # Categories that are document-type prefixed (nq-, nđ-, tt-, etc.) -- keep as-is.
-    has_doctype = bool(re.match(
-        r"(nq-|nđ-|nd-|tt-|qđ-|qd-|pl-|ql-|ttlt-|al)", cat_low))
+    has_doctype = bool(re.match(r"(nq-|nđ-|nd-|tt-|qđ-|qd-|pl-|ql-|ttlt-|al)", cat_low))
     # Pure issuer code (no doctype prefix) — UBTVQH / HĐTP / HĐND are typically NQ;
     # QH is the National Assembly (Luật) -> no prefix needed.
     if not has_doctype:
@@ -117,12 +116,16 @@ def extract_articles(text: str) -> List[Dict]:
         clauses: Dict[str, str] = {}
         clause_nums: List[int] = []
         # Use the body (rest + after) for clause extraction
-        full_body = (rest + "\n" + body[len(rest):] if body.startswith(rest) else body)
+        full_body = rest + "\n" + body[len(rest) :] if body.startswith(rest) else body
         clause_iter = list(RE_CLAUSE_INLINE.finditer(full_body))
         for j, cm in enumerate(clause_iter):
             cn = cm.group("n")
             cs = cm.end()
-            ce = clause_iter[j + 1].start() if j + 1 < len(clause_iter) else len(full_body)
+            ce = (
+                clause_iter[j + 1].start()
+                if j + 1 < len(clause_iter)
+                else len(full_body)
+            )
             ctext = full_body[cs:ce].strip()
             # Drop noise: keep only if reasonably long
             if len(ctext) >= 5:
@@ -132,13 +135,17 @@ def extract_articles(text: str) -> List[Dict]:
                 except ValueError:
                     pass
 
-        out.append({
-            "article_num": m.group("num"),
-            "article_title": title,
-            "article_text": body,
-            "clauses_json": json.dumps(clauses, ensure_ascii=False) if clauses else "{}",
-            "clause_nums": clause_nums,
-        })
+        out.append(
+            {
+                "article_num": m.group("num"),
+                "article_title": title,
+                "article_text": body,
+                "clauses_json": json.dumps(clauses, ensure_ascii=False)
+                if clauses
+                else "{}",
+                "clause_nums": clause_nums,
+            }
+        )
     return out
 
 
@@ -155,8 +162,9 @@ def extract_short_name(text: str, doc_id: str) -> str:
     m = RE_HEADER.search(head)
     if m:
         s = (m.group(1) + " " + m.group(2)).strip()
-        s = re.split(r"\s+(?:CHÍNH PHỦ|HỘI ĐỒNG|QUỐC HỘI|UỶ BAN|ỦY BAN|Căn cứ|--+)",
-                     s)[0]
+        s = re.split(r"\s+(?:CHÍNH PHỦ|HỘI ĐỒNG|QUỐC HỘI|UỶ BAN|ỦY BAN|Căn cứ|--+)", s)[
+            0
+        ]
         s = re.sub(r"\s+", " ", s).strip()
         return s.upper()[:200]
     return f"VĂN BẢN {doc_id}"
@@ -181,28 +189,34 @@ def main():
     if primary_path.exists():
         primary = pd.read_parquet(primary_path, columns=["law_sig"])
         sig_counts = primary["law_sig"].dropna().astype(str).value_counts()
-        well_covered = set(sig_counts[sig_counts >= 20].index)  # >=20 articles -> assume complete
+        well_covered = set(
+            sig_counts[sig_counts >= 20].index
+        )  # >=20 articles -> assume complete
         before = len(need)
-        need = {k: v for k, v in need.items() if doc_id_to_law_sig(k) not in well_covered}
-        print(f"[supp]   {before - len(need)} well-covered in primary; {len(need)} remain to fetch")
+        need = {
+            k: v for k, v in need.items() if doc_id_to_law_sig(k) not in well_covered
+        }
+        print(
+            f"[supp]   {before - len(need)} well-covered in primary; {len(need)} remain to fetch"
+        )
 
     # Extra docs to pull regardless of citation count (referenced by name-only,
     # OR present in primary corpus but with incomplete article coverage):
     EXTRA_DOC_IDS = [
-        "53/2014/QH13",   # Luật Công chứng 2014
-        "82/2006/QH11",   # Luật Công chứng 2006
-        "83/2015/QH13",   # Luật Ngân sách Nhà nước 2015
-        "02/2011/QH13",   # Luật Khiếu nại 2011
-        "62/2014/QH13",   # Luật Tổ chức TAND 2014
+        "53/2014/QH13",  # Luật Công chứng 2014
+        "82/2006/QH11",  # Luật Công chứng 2006
+        "83/2015/QH13",  # Luật Ngân sách Nhà nước 2015
+        "02/2011/QH13",  # Luật Khiếu nại 2011
+        "62/2014/QH13",  # Luật Tổ chức TAND 2014
         # Sparse in primary corpus -> fetch full from hirine
-        "58/2020/QH14",   # Luật Hòa giải, đối thoại tại Tòa án (only 6 chunks in primary)
-        "54/2010/QH12",   # Luật Trọng tài thương mại 2010 (only 3 chunks)
+        "58/2020/QH14",  # Luật Hòa giải, đối thoại tại Tòa án (only 6 chunks in primary)
+        "54/2010/QH12",  # Luật Trọng tài thương mại 2010 (only 3 chunks)
         "11/2012/NĐ-CP",  # NĐ 11/2012 (sparse)
         "37/2015/NĐ-CP",  # NĐ 37/2015 (sparse)
         "01/2017/NĐ-CP",  # sửa đổi NĐ Đất đai (sparse)
-        "14/2008/QH12",   # Luật Thuế TNDN
+        "14/2008/QH12",  # Luật Thuế TNDN
         "104/2015/QH13",  # Luật Phí và Lệ phí
-        "52/2019/QH14",   # Luật Cán bộ công chức (sửa đổi 2019)
+        "52/2019/QH14",  # Luật Cán bộ công chức (sửa đổi 2019)
         "132/2020/QH14",  # Luật Người Việt Nam đi làm việc ở nước ngoài
     ]
     for doc_id in EXTRA_DOC_IDS:
@@ -217,7 +231,9 @@ def main():
     print(f"[supp]   {len(df):,} docs in hirine")
 
     found = df[df["nid"].isin(need_norm.keys())].copy()
-    print(f"[supp]   {len(found)} docs matched ({len(found)/len(need)*100:.1f}% of missing)")
+    print(
+        f"[supp]   {len(found)} docs matched ({len(found) / len(need) * 100:.1f}% of missing)"
+    )
 
     rows: List[Dict] = []
     n_articles = 0
@@ -229,24 +245,26 @@ def main():
         arts = extract_articles(r["text"])
         n_articles += len(arts)
         for art in arts:
-            rows.append({
-                "chunk_id": f"supp_{law_sig}_{art['article_num']}",
-                "law_sig": law_sig,
-                "law_num": parts[0],
-                "law_year": parts[1],
-                "law_category": law_sig.split("_", 2)[2],
-                "law_short_name": short_name,
-                "article_num": art["article_num"],
-                "article_title": art["article_title"],
-                "clause_nums": art["clause_nums"],
-                "content": (
-                    f"[{law_sig.upper()}]\n\n{short_name}\n"
-                    f"Điều {art['article_num']}. {art['article_title']}\n\n"
-                    f"{art['article_text']}"
-                ),
-                "article_text": art["article_text"],
-                "clauses_json": art["clauses_json"],
-            })
+            rows.append(
+                {
+                    "chunk_id": f"supp_{law_sig}_{art['article_num']}",
+                    "law_sig": law_sig,
+                    "law_num": parts[0],
+                    "law_year": parts[1],
+                    "law_category": law_sig.split("_", 2)[2],
+                    "law_short_name": short_name,
+                    "article_num": art["article_num"],
+                    "article_title": art["article_title"],
+                    "clause_nums": art["clause_nums"],
+                    "content": (
+                        f"[{law_sig.upper()}]\n\n{short_name}\n"
+                        f"Điều {art['article_num']}. {art['article_title']}\n\n"
+                        f"{art['article_text']}"
+                    ),
+                    "article_text": art["article_text"],
+                    "clauses_json": art["clauses_json"],
+                }
+            )
 
     print(f"[supp] Total articles produced: {n_articles}")
     if not rows:

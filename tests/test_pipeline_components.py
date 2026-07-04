@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from ura_xlaw.corpus.citations import parse_citation
-from ura_xlaw.preprocessing.judgments import clean_body_text
+from ura_xlaw.corpus.map_citations import parse_citation
+from ura_xlaw.preprocessing.clean_judgments import clean_body_text
 
 
 class CoreTests(unittest.TestCase):

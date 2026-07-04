@@ -85,9 +85,11 @@ def main():
 
     n_doc = 0
     n_row = 0
-    with open(args.input, encoding="utf-8") as f_in, open(
-        args.out_jsonl, "w", encoding="utf-8"
-    ) as f_jsonl, open(args.out_csv, "w", encoding="utf-8", newline="") as f_csv:
+    with (
+        open(args.input, encoding="utf-8") as f_in,
+        open(args.out_jsonl, "w", encoding="utf-8") as f_jsonl,
+        open(args.out_csv, "w", encoding="utf-8", newline="") as f_csv,
+    ):
         writer = csv.DictWriter(f_csv, fieldnames=FLAT_FIELDS, extrasaction="ignore")
         writer.writeheader()
         for line in f_in:

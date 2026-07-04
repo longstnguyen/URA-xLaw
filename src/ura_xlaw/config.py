@@ -6,6 +6,7 @@ the caller's current directory.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,25 +17,23 @@ DATASET_NAME = "URA-xLaw"
 @dataclass(frozen=True)
 class ProjectPaths:
     root: Path
-    data: Path
+    workspace: Path
     raw: Path
     processed: Path
-    prompts: Path
     release: Path
-    crawl_metadata: Path
 
     @classmethod
     def discover(cls) -> "ProjectPaths":
-        root = Path(__file__).resolve().parents[2]
-        data = root / "data"
+        root = Path(
+            os.environ.get("URA_XLAW_ROOT", Path(__file__).resolve().parents[2])
+        ).resolve()
+        workspace = root / "data"
         return cls(
             root=root,
-            data=data,
-            raw=data / "raw",
-            processed=data / "processed",
-            prompts=data / "prompts",
-            release=data,
-            crawl_metadata=data / "metadata" / "crawl",
+            workspace=workspace,
+            raw=workspace / "raw",
+            processed=workspace / "processed",
+            release=root / "dataset",
         )
 
     @property
@@ -47,7 +46,15 @@ class ProjectPaths:
 
     @property
     def generation_prompt(self) -> Path:
-        return self.prompts / "legal_gen_prompt.txt"
+        return Path(__file__).resolve().parent / "prompts" / "qa_generation.txt"
+
+    @property
+    def full_corpus(self) -> Path:
+        return self.release / "corpus" / "full.parquet"
+
+    @property
+    def retrieval_corpus(self) -> Path:
+        return self.release / "corpus" / "retrieval.parquet"
 
 
 PATHS = ProjectPaths.discover()

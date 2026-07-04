@@ -75,10 +75,14 @@ def collect_missing(jsonl: Path, min_count: int = 1) -> Tuple[Counter, Counter]:
 # Step 2: DDG search
 # --------------------------------------------------------------------------- #
 
-RE_TVPL_URL = re.compile(r"https?://(?:www\.)?thuvienphapluat\.vn/van-ban/[^\"'<>\s&]+\.aspx", re.I)
+RE_TVPL_URL = re.compile(
+    r"https?://(?:www\.)?thuvienphapluat\.vn/van-ban/[^\"'<>\s&]+\.aspx", re.I
+)
 
 
-def ddg_search_tvpl(query: str, session: requests.Session, retries: int = 3) -> Optional[str]:
+def ddg_search_tvpl(
+    query: str, session: requests.Session, retries: int = 3
+) -> Optional[str]:
     url = "https://duckduckgo.com/html/"
     params = {"q": f'site:thuvienphapluat.vn "{query}"'}
     for attempt in range(retries):
@@ -89,7 +93,9 @@ def ddg_search_tvpl(query: str, session: requests.Session, retries: int = 3) -> 
                 continue
             urls = RE_TVPL_URL.findall(r.text)
             # Skip /EN/ (English) and /tieng-anh/ versions
-            urls = [u for u in urls if "/van-ban/EN/" not in u and "/tieng-anh" not in u]
+            urls = [
+                u for u in urls if "/van-ban/EN/" not in u and "/tieng-anh" not in u
+            ]
             # Decode any DDG redirect wrapper
             urls = [urllib.parse.unquote(u) for u in urls]
             if urls:
@@ -102,6 +108,7 @@ def ddg_search_tvpl(query: str, session: requests.Session, retries: int = 3) -> 
 # --------------------------------------------------------------------------- #
 # Step 3: fetch + strip HTML
 # --------------------------------------------------------------------------- #
+
 
 class TextExtractor(HTMLParser):
     """Extract visible text, preserving paragraph breaks."""
@@ -152,8 +159,11 @@ def fetch_tvpl(url: str, session: requests.Session, retries: int = 3) -> Optiona
 
 def extract_main_text(html: str) -> str:
     """TVPL document body is in #tab1 div. Fall back to full strip if not found."""
-    m = re.search(r'<div[^>]*id=["\']?tab1["\']?[^>]*>(.*?)</div>\s*<div[^>]*id=["\']?tab2',
-                  html, re.S | re.I)
+    m = re.search(
+        r'<div[^>]*id=["\']?tab1["\']?[^>]*>(.*?)</div>\s*<div[^>]*id=["\']?tab2',
+        html,
+        re.S | re.I,
+    )
     body = m.group(1) if m else html
     p = TextExtractor()
     p.feed(body)
@@ -194,13 +204,17 @@ def parse_articles(text: str) -> List[Dict]:
                 clause_nums.append(int(cn))
             except ValueError:
                 pass
-        out.append({
-            "article_num": m.group("num"),
-            "article_title": title,
-            "article_text": body,
-            "clauses_json": json.dumps(clauses, ensure_ascii=False) if clauses else "{}",
-            "clause_nums": clause_nums,
-        })
+        out.append(
+            {
+                "article_num": m.group("num"),
+                "article_title": title,
+                "article_text": body,
+                "clauses_json": json.dumps(clauses, ensure_ascii=False)
+                if clauses
+                else "{}",
+                "clause_nums": clause_nums,
+            }
+        )
     return out
 
 
@@ -221,7 +235,7 @@ def extract_short_name(text: str, fallback: str) -> str:
     m = RE_LAW_HEADER.search(head)
     if m:
         # Take up to 200 chars from the match
-        chunk = head[m.start(): m.start() + 200].strip()
+        chunk = head[m.start() : m.start() + 200].strip()
         # First line(s) until blank or "Căn cứ"
         chunk = re.split(r"\n\n|Căn cứ", chunk)[0].strip()
         chunk = re.sub(r"\s+", " ", chunk)
@@ -233,13 +247,14 @@ def extract_short_name(text: str, fallback: str) -> str:
 # Main crawl
 # --------------------------------------------------------------------------- #
 
+
 def doc_id_to_filename(doc_id: str) -> str:
     return doc_id.replace("/", "_").replace(" ", "")
 
 
 def doc_id_to_law_sig(doc_id: str) -> str:
     """326/2016/UBTVQH14 -> 326_2016_nq-ubtvqh14 (or just 326_2016_ubtvqh14
-       depending on convention). For NQ docs we add nq- prefix.
+    depending on convention). For NQ docs we add nq- prefix.
     """
     parts = doc_id.split("/")
     num, year, cat = parts[0], parts[1], parts[2]
@@ -269,7 +284,12 @@ def crawl_doc(doc_id: str, session: requests.Session) -> Optional[Dict]:
     else:
         url = ddg_search_tvpl(doc_id, session)
         if not url:
-            meta = {"doc_id": doc_id, "url": None, "rows": [], "error": "no_search_result"}
+            meta = {
+                "doc_id": doc_id,
+                "url": None,
+                "rows": [],
+                "error": "no_search_result",
+            }
             cache_meta.write_text(json.dumps(meta, ensure_ascii=False))
             return meta
         time.sleep(1.0)  # polite
@@ -289,30 +309,44 @@ def crawl_doc(doc_id: str, session: requests.Session) -> Optional[Dict]:
     parts = doc_id.split("/")
     rows = []
     for art in arts:
-        rows.append({
-            "chunk_id": f"{law_sig}_{art['article_num']}",
-            "law_sig": law_sig,
-            "law_num": parts[0],
-            "law_year": parts[1],
-            "law_category": law_sig.split("_", 2)[2],
-            "law_short_name": short_name,
-            "article_num": art["article_num"],
-            "article_title": art["article_title"],
-            "clause_nums": art["clause_nums"],
-            "content": f"[{law_sig.upper()}]\n\n{short_name}\nĐiều {art['article_num']}. {art['article_title']}\n\n{art['article_text']}",
-            "article_text": art["article_text"],
-            "clauses_json": art["clauses_json"],
-        })
-    meta = {"doc_id": doc_id, "url": url, "law_sig": law_sig, "short_name": short_name,
-            "n_articles": len(rows), "rows": rows, "error": None if rows else "no_articles_parsed"}
+        rows.append(
+            {
+                "chunk_id": f"{law_sig}_{art['article_num']}",
+                "law_sig": law_sig,
+                "law_num": parts[0],
+                "law_year": parts[1],
+                "law_category": law_sig.split("_", 2)[2],
+                "law_short_name": short_name,
+                "article_num": art["article_num"],
+                "article_title": art["article_title"],
+                "clause_nums": art["clause_nums"],
+                "content": f"[{law_sig.upper()}]\n\n{short_name}\nĐiều {art['article_num']}. {art['article_title']}\n\n{art['article_text']}",
+                "article_text": art["article_text"],
+                "clauses_json": art["clauses_json"],
+            }
+        )
+    meta = {
+        "doc_id": doc_id,
+        "url": url,
+        "law_sig": law_sig,
+        "short_name": short_name,
+        "n_articles": len(rows),
+        "rows": rows,
+        "error": None if rows else "no_articles_parsed",
+    }
     cache_meta.write_text(json.dumps(meta, ensure_ascii=False))
     return meta
 
 
 def crawl_name_only(name: str, session: requests.Session) -> Optional[Dict]:
     """Search by law name (no doc_id). Use first /van-ban/ result."""
-    safe = re.sub(r'[^\w\s]', ' ', name)[:80]
-    cache_meta = RAW_DIR / f"NAME_{re.sub(r'[^a-zA-Z0-9]+','_',unicodedata.normalize('NFKD',safe).encode('ascii','ignore').decode())[:60]}.json"
+    safe = re.sub(r"[^\w\s]", " ", name)[:80]
+    cache_name = re.sub(
+        r"[^a-zA-Z0-9]+",
+        "_",
+        unicodedata.normalize("NFKD", safe).encode("ascii", "ignore").decode(),
+    )[:60]
+    cache_meta = RAW_DIR / f"NAME_{cache_name}.json"
     cache_html = cache_meta.with_suffix(".html")
     if cache_meta.exists():
         try:
@@ -321,7 +355,8 @@ def crawl_name_only(name: str, session: requests.Session) -> Optional[Dict]:
             pass
 
     if cache_html.exists():
-        html = cache_html.read_text(); url = "(cached)"
+        html = cache_html.read_text()
+        url = "(cached)"
     else:
         url = ddg_search_tvpl(name, session)
         if not url:
@@ -334,12 +369,11 @@ def crawl_name_only(name: str, session: requests.Session) -> Optional[Dict]:
             meta = {"name": name, "url": url, "rows": [], "error": "fetch_failed"}
             cache_meta.write_text(json.dumps(meta, ensure_ascii=False))
             return meta
-        cache_html.write_text(html); time.sleep(1.0)
+        cache_html.write_text(html)
+        time.sleep(1.0)
 
     text = extract_main_text(html)
-    # Try to extract doc_id from URL
-    m = re.search(r"-(\d+)-(\d{4})-([A-Za-z0-9\-]+?)-(?:cua|nam|so|muc|huong|quy|quan|ve|cho)?", url, re.I)
-    # Better: extract from text header
+    # Extract the document identifier from the page header.
     m_text = re.search(r"\b(\d+)\s*/\s*(\d{4})\s*/\s*([A-Za-zĐđ0-9\-]+)", text[:2000])
     if m_text:
         doc_id = f"{m_text.group(1)}/{m_text.group(2)}/{m_text.group(3).upper()}"
@@ -355,22 +389,31 @@ def crawl_name_only(name: str, session: requests.Session) -> Optional[Dict]:
     arts = parse_articles(text)
     rows = []
     for art in arts:
-        rows.append({
-            "chunk_id": f"{law_sig}_{art['article_num']}",
-            "law_sig": law_sig,
-            "law_num": parts[0],
-            "law_year": parts[1],
-            "law_category": law_sig.split("_", 2)[-1],
-            "law_short_name": short_name,
-            "article_num": art["article_num"],
-            "article_title": art["article_title"],
-            "clause_nums": art["clause_nums"],
-            "content": f"[{law_sig.upper()}]\n\n{short_name}\nĐiều {art['article_num']}. {art['article_title']}\n\n{art['article_text']}",
-            "article_text": art["article_text"],
-            "clauses_json": art["clauses_json"],
-        })
-    meta = {"name": name, "url": url, "law_sig": law_sig, "short_name": short_name,
-            "n_articles": len(rows), "rows": rows, "error": None if rows else "no_articles_parsed"}
+        rows.append(
+            {
+                "chunk_id": f"{law_sig}_{art['article_num']}",
+                "law_sig": law_sig,
+                "law_num": parts[0],
+                "law_year": parts[1],
+                "law_category": law_sig.split("_", 2)[-1],
+                "law_short_name": short_name,
+                "article_num": art["article_num"],
+                "article_title": art["article_title"],
+                "clause_nums": art["clause_nums"],
+                "content": f"[{law_sig.upper()}]\n\n{short_name}\nĐiều {art['article_num']}. {art['article_title']}\n\n{art['article_text']}",
+                "article_text": art["article_text"],
+                "clauses_json": art["clauses_json"],
+            }
+        )
+    meta = {
+        "name": name,
+        "url": url,
+        "law_sig": law_sig,
+        "short_name": short_name,
+        "n_articles": len(rows),
+        "rows": rows,
+        "error": None if rows else "no_articles_parsed",
+    }
     cache_meta.write_text(json.dumps(meta, ensure_ascii=False))
     return meta
 
@@ -379,11 +422,18 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--input", default=str(INPUT_JSONL))
     p.add_argument("--output", default=str(OUT_PARQUET))
-    p.add_argument("--min-count", type=int, default=2,
-                   help="Only crawl docs with at least this many citations")
+    p.add_argument(
+        "--min-count",
+        type=int,
+        default=2,
+        help="Only crawl docs with at least this many citations",
+    )
     p.add_argument("--max-docs", type=int, default=200)
-    p.add_argument("--include-names", action="store_true",
-                   help="Also crawl name-only citations (no doc_id)")
+    p.add_argument(
+        "--include-names",
+        action="store_true",
+        help="Also crawl name-only citations (no doc_id)",
+    )
     args = p.parse_args()
 
     print(f"[crawl] Collecting missing docs from {args.input}")

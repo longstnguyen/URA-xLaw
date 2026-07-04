@@ -8,7 +8,7 @@ Checks:
 4. Diversity: 3 entries should not be near-duplicates
 
 Usage:
-    from ura_xlaw.generation.validation import validate_sample, ValidationResult
+    from ura_xlaw.generation.validator import validate_sample, ValidationResult
     result = validate_sample(parsed_json, source_body)
     if not result.ok:
         print(result.errors)
@@ -19,7 +19,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
-from typing import Optional
 
 
 REQUIRED_TOP_FIELDS = {"situation", "entries"}
