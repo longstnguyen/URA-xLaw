@@ -1,0 +1,5 @@
+.DS_Store
+.env
+
+# Raw crawl data is intentionally retained only on the maintainer's machine.
+data/raw/
