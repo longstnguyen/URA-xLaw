@@ -1,5 +1,14 @@
 .DS_Store
 .env
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
 
 # Raw crawl data is intentionally retained only on the maintainer's machine.
 data/raw/
+data/processed/
+data/metadata/
+logs/

@@ -1,0 +1,93 @@
+# Legal Dataset Generation Prompt — Court Judgment Source
+
+You are a legal expert and data scientist. Your task is to transform the following Vietnamese **court judgment** (bản án / quyết định) into a structured legal dataset. Each judgment should result in a single consistent situation (facts) coupled with three distinct question-answer pairs corresponding to different complexity levels: **Simple**, **Medium**, and **Complex**.
+
+### SOURCE CONTEXT:
+This text comes from an official court judgment published on the Vietnamese Court Portal (congbobanan.toaan.gov.vn). Unlike news articles, this is the **authoritative legal document** containing the court's findings, legal reasoning, and verdict.
+
+### INSTRUCTIONS:
+
+1. **situation**: 
+   - **STRICT REQUIREMENT**: This field must contain **ONLY** the factual description of the events (the who, what, where, when) as found in the "Nội dung vụ án" or "Lý do khởi kiện" sections.
+   - **DO NOT REVEAL THE OUTCOME**: Stop the story right before the court's verdict, the final ruling, sentencing, or the record of agreement. The situation should describe the **conflict**, not the **resolution**.
+   - **CRITICAL**: If the source is a "Quyết định công nhận sự thỏa thuận", do NOT include the terms of the agreement in the situation; instead, describe what the dispute was about before they agreed.
+   - Anonymize personal names (Ông A, Bà B, Công ty X, etc.) and specific long addresses (Số nhà... -> Thôn..., Huyện...).
+   - This field is common for all complexity levels.
+   - **OUTPUT LANGUAGE**: Vietnamese.
+
+2. **entries**:
+   - Provide a list of exactly 3 entries, one for each `complexity_level`: **Simple**, **Medium**, and **Complex**.
+   
+   - **question**:
+     - This field must contain **ONLY** the legal question based on the `complexity_level`.
+     - **Simple Question**: A direct, single-issue question (e.g., "Tội danh nào được áp dụng?").
+     - **Medium Question**: A question requiring analysis of specific clauses or aggravating/mitigating circumstances.
+     - **Complex Question**: A technical question involving complex legal interpretation, overlapping laws, constitutional principles, or liability nuances.
+
+   - **answer**: 
+     - Provide a **comprehensive and detailed** response in **Vietnamese** based on the judgment content.
+     - **STRICT**: State the facts as decided by the court. Avoid hedging words like "có thể", "có lẽ".
+     - Reference specific articles of law that the court applied.
+
+   - **legal_reasoning**: 
+     - Explain the legal logic in **Vietnamese** connecting the events in the situation to the laws applied.
+     - For **Complex** entries, provide a highly technical and thorough analysis (the court's own reasoning).
+
+   - **law_applied**: 
+     - Provide citations as a **list of strings**. 
+     - **STRICT FORMAT**: Each string **MUST** start with the literal character 'D' followed by the number of the Article, then ':K' followed by the Clause number, then ':d' followed by the Point letter/number, and finally the Law Name.
+     - **Everything must be colon-separated.**
+     - **LITERALS REQUIRED**: You must explicitly include the characters `D`, `K`, and `d`.
+     - Correct Example: `["D174:K2:da:Bộ luật Hình sự 2015"]` (where D = Điều, K = Khoản, d = Điểm).
+     - If Khoản or Điểm is not mentioned, use `D123:Bộ luật...`.
+
+   - **complexity_level**: Simple, Medium, or Complex.
+
+### INPUT DATA:
+Bản án số: {case_number}
+Ngày: {date}
+Cấp xét xử: {trial_level}
+Loại vụ/việc: {case_type}
+Tòa án: {court}
+Tiêu đề: {title}
+Nội dung toàn văn:
+{body}
+Link gốc: {url}
+
+### OUTPUT FORMAT:
+Return a single JSON object with the following structure:
+```json
+{{
+  "situation": "...",
+  "original_source": "{url}",
+  "court": "{court}",
+  "case_type": "{case_type}",
+  "trial_level": "{trial_level}",
+  "entries": [
+    {{
+      "complexity_level": "Simple",
+      "legal_category": "...",
+      "question": "...",
+      "answer": "...",
+      "legal_reasoning": "...",
+      "law_applied": ["..."]
+    }},
+    {{
+      "complexity_level": "Medium",
+      "legal_category": "...",
+      "question": "...",
+      "answer": "...",
+      "legal_reasoning": "...",
+      "law_applied": ["..."]
+    }},
+    {{
+      "complexity_level": "Complex",
+      "legal_category": "...",
+      "question": "...",
+      "answer": "...",
+      "legal_reasoning": "...",
+      "law_applied": ["..."]
+    }}
+  ]
+}}
+```

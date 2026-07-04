@@ -1,13 +1,13 @@
 {
   "dataset_name": "URA-xLaw",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "language": "vi",
   "task": "legal retrieval-augmented question answering",
   "files": {
     "train": {
       "path": "train.jsonl",
       "rows": 4788,
-      "sha256": "4bc101d0f1636ef1e570866c3ecba9e726bc4c08183980d4e2be737c4fc45653"
+      "sha256": "528eac088b29335507e6d4ff62d654ca8fdcc2d5262a24a85c27acc06c400986"
     },
     "test": {
       "path": "test.jsonl",
@@ -23,13 +23,13 @@
       "path": "corpus_full.parquet",
       "chunks": 32587,
       "legal_documents": 1580,
-      "sha256": "e2fc58c54e6f1448bbd00aa7a4ab2f282b99b00f9afb3d968a2b3cc3d470bd3b"
+      "sha256": "f352a104881522dccb4cebff0be3e13284cfd932c9bc65a77953705b950f6406"
     },
     "corpus_rag": {
       "path": "corpus_rag.parquet",
       "chunks": 1313,
       "legal_documents": 140,
-      "sha256": "34953f7621b0197a4c6c7f1cc1973b6919f760a9e734ecc5a0c81df03ae03657"
+      "sha256": "9e05a887dd7065018fdc6e3dce3c39adc370b4536e819cc4025431878d10dfc9"
     }
   }
 }
